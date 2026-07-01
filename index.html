@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard & Report Check-in Event</title>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+    <style>
+        * {
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        body {
+            background-color: #f4f6f9;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: #333;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .header img {
+            max-width: 200px;
+            height: auto;
+        }
+        .container {
+            background: #ffffff;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            width: 100%;
+            max-width: 1100px; /* Diperlebar karena kolom tabelnya banyak */
+        }
+        
+        /* Dashboard Styling */
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+        .card {
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            border: 1px solid #eee;
+        }
+        .card-blue { border-top: 4px solid #007bff; background-color: #f8fbff; }
+        .card-green { border-top: 4px solid #28a745; background-color: #f9fff9; }
+        .card-grey { border-top: 4px solid #6c757d; background-color: #f8f9fa; }
+        .card h3 {
+            margin: 0; font-size: 13px; color: #555; text-transform: uppercase;
+        }
+        .card p {
+            margin: 10px 0 0 0; font-size: 26px; font-weight: bold; color: #222;
+        }
+
+        /* Input Styling */
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 15px;
+        }
+        .input-group label {
+            font-weight: 600; margin-bottom: 8px; color: #555;
+        }
+        .input-group input {
+            padding: 15px; font-size: 18px; border: 2px solid #ced4da;
+            border-radius: 8px; outline: none; transition: 0.3s;
+        }
+        .input-group input:focus { border-color: #007bff; }
+
+        .status {
+            padding: 12px; border-radius: 6px; text-align: center;
+            font-weight: bold; margin-bottom: 20px; display: none;
+        }
+        .status.success { background-color: #d4edda; color: #155724; display: block; }
+        .status.error { background-color: #f8d7da; color: #721c24; display: block; }
+
+        /* Actions & Buttons */
+        .actions {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 15px; border-bottom: 2px solid #f1f1f1; padding-bottom: 15px;
+        }
+        .table-title {
+            font-size: 18px; font-weight: 600; color: #333;
+        }
+        .btn-group { display: flex; gap: 8px; }
+        button {
+            padding: 10px 16px; border: none; border-radius: 6px;
+            font-size: 14px; font-weight: 600; cursor: pointer; transition: 0.2s;
+        }
+        .btn-csv { background-color: #007bff; color: white; }
+        .btn-xlsx { background-color: #28a745; color: white; }
+        .btn-clear { background-color: #6c757d; color: white; }
+        button:hover { opacity: 0.85; }
+        
+        /* Matrix Table Styling (Proper Reporting) */
+        .table-container {
+            width: 100%; overflow-x: auto; max-height: 500px;
+        }
+        table {
+            width: 100%; border-collapse: collapse; white-space: nowrap;
+        }
+        table, th, td {
+            border: 1px solid #dee2e6;
+        }
+        th {
+            background-color: #f4f6f9; color: #333; font-weight: 600;
+            padding: 10px; text-align: center; position: sticky; top: 0; z-index: 2;
+        }
+        /* Sticky header lapis kedua */
+        thead tr:nth-child(2) th { top: 40px; z-index: 1; }
+        
+        td {
+            padding: 8px 12px; text-align: center; font-family: monospace; font-size: 14px;
+        }
+        table tr:hover td { background-color: #f8f9fa; }
+        
+        /* Pewarnaan Header Biar Jelas */
+        .th-day1 { border-bottom: 2px solid #007bff !important; }
+        .th-day2 { border-bottom: 2px solid #28a745 !important; }
+        .th-day3 { border-bottom: 2px solid #17a2b8 !important; }
+        .th-day4 { border-bottom: 2px solid #fd7e14 !important; }
+        .th-day5 { border-bottom: 2px solid #6f42c1 !important; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTG34HBajTszhslLbIZMQZjz6nHN-sYrSeu2huaU6dFaw&s=10" alt="Logo">
+    </div>
+
+    <div class="container">
+        
+        <div class="dashboard">
+            <div class="card card-blue">
+                <h3>Total Scan Hari Ini</h3>
+                <p id="todayCount">0</p>
+            </div>
+            <div class="card card-green">
+                <h3>Re-visit Hari Ini</h3>
+                <p id="revisitCount">0</p>
+            </div>
+            <div class="card card-grey">
+                <h3>Total Keseluruhan (1-5 Juli)</h3>
+                <p id="allTimeCount">0</p>
+            </div>
+        </div>
+
+        <div class="input-group">
+            <label for="qrInput">Pastikan kursor aktif di sini sebelum scan:</label>
+            <input type="text" id="qrInput" placeholder="Arahkan scanner ke QR Code..." autofocus autocomplete="off">
+        </div>
+        
+        <div id="statusMessage" class="status"></div>
+
+        <div class="actions">
+            <div class="table-title">Laporan Data Check-in (Matrix View)</div>
+            <div class="btn-group">
+                <button class="btn-csv" onclick="exportToCSV()">Export CSV</button>
+                <button class="btn-xlsx" onclick="exportToXLSX()">Export XLSX</button>
+                <button class="btn-clear" onclick="clearData()">Reset Data</button>
+            </div>
+        </div>
+
+        <div class="table-container">
+            <table id="dataTable">
+                <thead>
+                    <tr>
+                        <th class="th-day1">Day 1</th>
+                        <th colspan="2" class="th-day2">Day 2</th>
+                        <th colspan="2" class="th-day3">Day 3</th>
+                        <th colspan="2" class="th-day4">Day 4</th>
+                        <th colspan="2" class="th-day5">Day 5</th>
+                    </tr>
+                    <tr>
+                        <th class="th-day1">Unique</th>
+                        <th class="th-day2">Unique</th>
+                        <th class="th-day2">Re-visit</th>
+                        <th class="th-day3">Unique</th>
+                        <th class="th-day3">Re-visit</th>
+                        <th class="th-day4">Unique</th>
+                        <th class="th-day4">Re-visit</th>
+                        <th class="th-day5">Unique</th>
+                        <th class="th-day5">Re-visit</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody">
+                    </tbody>
+            </table>
+        </div>
+
+    </div>
+
+    <script>
+        let checkinData = JSON.parse(localStorage.getItem('checkinData')) || [];
+        const eventDates = ['2026-07-01', '2026-07-02', '2026-07-03', '2026-07-04', '2026-07-05'];
+        
+        const qrInput = document.getElementById('qrInput');
+        const statusBox = document.getElementById('statusMessage');
+        const tableBody = document.getElementById('tableBody');
+
+        // Init UI
+        updateDashboard();
+        renderTable();
+
+        function getActualTodayDate() {
+            const today = new Date();
+            const year = today.getFullYear();
+            const month = String(today.getMonth() + 1).padStart(2, '0');
+            const day = String(today.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
+        function showStatus(message, type) {
+            statusBox.textContent = message;
+            statusBox.className = `status ${type}`;
+            setTimeout(() => { statusBox.style.display = 'none'; }, 2500); 
+        }
+
+        // --- CORE LOGIC: GENERATE MATRIX DATA ---
+        function generateMatrixData() {
+            let cols = {
+                '1_U': [],
+                '2_U': [], '2_R': [],
+                '3_U': [], '3_R': [],
+                '4_U': [], '4_R': [],
+                '5_U': [], '5_R': []
+            };
+
+            const seenQRs = new Set();
+
+            eventDates.forEach((date, index) => {
+                const dayNum = index + 1;
+                // Ambil data khusus tanggal ini
+                const scansForDay = checkinData.filter(d => d.tanggal === date);
+                
+                scansForDay.forEach(scan => {
+                    // Kalau QR Code sudah pernah di-scan di hari-hari sebelumnya
+                    if (seenQRs.has(scan.qr_code)) {
+                        if (dayNum > 1) {
+                            cols[`${dayNum}_R`].push(scan.qr_code);
+                        }
+                    } else {
+                        // Kalau belum pernah ada (Unique)
+                        cols[`${dayNum}_U`].push(scan.qr_code);
+                        seenQRs.add(scan.qr_code);
+                    }
+                });
+            });
+
+            // Cari kolom mana yang punya baris terbanyak untuk nentuin tinggi tabel
+            const maxRows = Math.max(
+                cols['1_U'].length,
+                cols['2_U'].length, cols['2_R'].length,
+                cols['3_U'].length, cols['3_R'].length,
+                cols['4_U'].length, cols['4_R'].length,
+                cols['5_U'].length, cols['5_R'].length,
+                0 // Minimal 0
+            );
+
+            return { cols, maxRows, seenQRs };
+        }
+
+        // --- RENDER KE HTML ---
+        function renderTable() {
+            const { cols, maxRows } = generateMatrixData();
+            let tableHTML = '';
+            
+            for (let i = 0; i < maxRows; i++) {
+                tableHTML += `
+                    <tr>
+                        <td>${cols['1_U'][i] || '-'}</td>
+                        <td>${cols['2_U'][i] || '-'}</td>
+                        <td>${cols['2_R'][i] || '-'}</td>
+                        <td>${cols['3_U'][i] || '-'}</td>
+                        <td>${cols['3_R'][i] || '-'}</td>
+                        <td>${cols['4_U'][i] || '-'}</td>
+                        <td>${cols['4_R'][i] || '-'}</td>
+                        <td>${cols['5_U'][i] || '-'}</td>
+                        <td>${cols['5_R'][i] || '-'}</td>
+                    </tr>
+                `;
+            }
+            
+            if (maxRows === 0) {
+                tableHTML = `<tr><td colspan="9" style="text-align:center; padding: 20px; color:#777;">Belum ada data check-in. Mulai scan untuk melihat matrix.</td></tr>`;
+            }
+
+            tableBody.innerHTML = tableHTML;
+        }
+
+        function updateDashboard() {
+            const today = getActualTodayDate();
+            let todayTotal = 0;
+            let revisitHariIni = 0;
+
+            const { cols, seenQRs } = generateMatrixData();
+
+            // Hitung manual buat dashboard hari ini
+            const dayIndex = eventDates.indexOf(today);
+            if (dayIndex !== -1) {
+                const dayNum = dayIndex + 1;
+                todayTotal = checkinData.filter(d => d.tanggal === today).length;
+                revisitHariIni = cols[`${dayNum}_R`] ? cols[`${dayNum}_R`].length : 0;
+            }
+
+            document.getElementById('todayCount').textContent = todayTotal;
+            document.getElementById('revisitCount').textContent = revisitHariIni;
+            document.getElementById('allTimeCount').textContent = checkinData.length;
+        }
+
+        // --- LOGIC SCANNER ---
+        qrInput.addEventListener('keypress', function(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                const scannedValue = qrInput.value.trim();
+                if (scannedValue !== "") processScan(scannedValue);
+                qrInput.value = '';
+            }
+        });
+
+        document.body.addEventListener('click', function(e) {
+            if(e.target.tagName !== 'BUTTON') qrInput.focus();
+        });
+
+        function processScan(scannedData) {
+            const scanDate = getActualTodayDate();
+            
+            if (!eventDates.includes(scanDate)) {
+                showStatus(`Gagal: Hari ini (${scanDate}) di luar jadwal event.`, 'error');
+                return;
+            }
+
+            const isAlreadyScannedToday = checkinData.some(entry => 
+                entry.qr_code === scannedData && entry.tanggal === scanDate
+            );
+
+            if (isAlreadyScannedToday) {
+                showStatus(`Gagal: QR Code ${scannedData} sudah scan hari ini!`, 'error');
+            } else {
+                const newEntry = {
+                    qr_code: scannedData,
+                    tanggal: scanDate,
+                    waktu: new Date().toLocaleTimeString('id-ID')
+                };
+                
+                checkinData.push(newEntry); 
+                localStorage.setItem('checkinData', JSON.stringify(checkinData));
+                
+                showStatus(`Berhasil: ${scannedData}`, 'success');
+                updateDashboard();
+                renderTable();
+            }
+        }
+
+        function clearData() {
+            if(confirm("Yakin mereset seluruh database check-in? Data akan hilang permanen!")) {
+                checkinData = [];
+                localStorage.removeItem('checkinData');
+                updateDashboard();
+                renderTable();
+                showStatus("Data berhasil direset.", "success");
+            }
+        }
+
+        // --- EXPORT TO EXCEL (Sesuai Gambar) ---
+        function exportToXLSX() {
+            if (checkinData.length === 0) {
+                alert("Belum ada data untuk di-export.");
+                return;
+            }
+
+            const { cols, maxRows } = generateMatrixData();
+            
+            // Bikin struktur Array-of-Arrays (AoA) persis kayak Excel-nya
+            const aoa = [
+                ["Day 1", "Day 2", "", "Day 3", "", "Day 4", "", "Day 5", ""],
+                ["Unique", "Unique", "Re-visit", "Unique", "Re-visit", "Unique", "Re-visit", "Unique", "Re-visit"]
+            ];
+
+            // Masukin data ke baris-baris bawahnya
+            for (let i = 0; i < maxRows; i++) {
+                aoa.push([
+                    cols['1_U'][i] || "",
+                    cols['2_U'][i] || "", cols['2_R'][i] || "",
+                    cols['3_U'][i] || "", cols['3_R'][i] || "",
+                    cols['4_U'][i] || "", cols['4_R'][i] || "",
+                    cols['5_U'][i] || "", cols['5_R'][i] || ""
+                ]);
+            }
+
+            const worksheet = XLSX.utils.aoa_to_sheet(aoa);
+
+            // Merge Cells buat row pertama ("Day 2" sampai "Day 5")
+            worksheet['!merges'] = [
+                { s: { r: 0, c: 1 }, e: { r: 0, c: 2 } }, // Day 2 (Kolom B-C)
+                { s: { r: 0, c: 3 }, e: { r: 0, c: 4 } }, // Day 3 (Kolom D-E)
+                { s: { r: 0, c: 5 }, e: { r: 0, c: 6 } }, // Day 4 (Kolom F-G)
+                { s: { r: 0, c: 7 }, e: { r: 0, c: 8 } }  // Day 5 (Kolom H-I)
+            ];
+
+            // Setting lebar kolom biar rapi pas dibuka
+            worksheet['!cols'] = Array(9).fill({wch: 15});
+
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Matrix Report");
+            XLSX.writeFile(workbook, `Report_Matrix_Event.xlsx`);
+        }
+
+        // --- EXPORT TO CSV (Format Sama) ---
+        function exportToCSV() {
+            if (checkinData.length === 0) {
+                alert("Belum ada data.");
+                return;
+            }
+
+            const { cols, maxRows } = generateMatrixData();
+            let csvContent = "data:text/csv;charset=utf-8,";
+            
+            csvContent += "Day 1,Day 2,,Day 3,,Day 4,,Day 5,\n";
+            csvContent += "Unique,Unique,Re-visit,Unique,Re-visit,Unique,Re-visit,Unique,Re-visit\n";
+
+            for (let i = 0; i < maxRows; i++) {
+                const row = [
+                    cols['1_U'][i] || "",
+                    cols['2_U'][i] || "", cols['2_R'][i] || "",
+                    cols['3_U'][i] || "", cols['3_R'][i] || "",
+                    cols['4_U'][i] || "", cols['4_R'][i] || "",
+                    cols['5_U'][i] || "", cols['5_R'][i] || ""
+                ];
+                csvContent += row.join(",") + "\n";
+            }
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `Report_Matrix_Event.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    </script>
+</body>
+</html>
