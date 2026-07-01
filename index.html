@@ -35,7 +35,7 @@
             border-radius: 10px;
             box-shadow: 0 4px 6px rgba(0,0,0,0.05);
             width: 100%;
-            max-width: 1100px; /* Diperlebar karena kolom tabelnya banyak */
+            max-width: 1100px;
         }
         
         /* Dashboard Styling */
@@ -43,7 +43,7 @@
             display: grid;
             grid-template-columns: repeat(3, 1fr);
             gap: 15px;
-            margin-bottom: 25px;
+            margin-bottom: 20px;
         }
         .card {
             padding: 15px;
@@ -61,11 +61,42 @@
             margin: 10px 0 0 0; font-size: 26px; font-weight: bold; color: #222;
         }
 
+        /* Toast Popup Notification (Tepat di atas input) */
+        .toast-container {
+            width: 100%;
+            height: 52px; /* Dikasih tinggi fix biar layout nggak naik-turun */
+            margin-bottom: 10px; 
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .toast {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            color: #fff;
+            font-size: 16px;
+            font-weight: 600;
+            opacity: 0;
+            transform: translateY(10px);
+            transition: all 0.2s ease;
+        }
+        .toast.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .toast.success { background-color: #28a745; }
+        .toast.error { background-color: #dc3545; }
+
         /* Input Styling */
         .input-group {
             display: flex;
             flex-direction: column;
-            margin-bottom: 15px;
+            margin-bottom: 25px;
         }
         .input-group label {
             font-weight: 600; margin-bottom: 8px; color: #555;
@@ -76,21 +107,12 @@
         }
         .input-group input:focus { border-color: #007bff; }
 
-        .status {
-            padding: 12px; border-radius: 6px; text-align: center;
-            font-weight: bold; margin-bottom: 20px; display: none;
-        }
-        .status.success { background-color: #d4edda; color: #155724; display: block; }
-        .status.error { background-color: #f8d7da; color: #721c24; display: block; }
-
         /* Actions & Buttons */
         .actions {
             display: flex; justify-content: space-between; align-items: center;
             margin-bottom: 15px; border-bottom: 2px solid #f1f1f1; padding-bottom: 15px;
         }
-        .table-title {
-            font-size: 18px; font-weight: 600; color: #333;
-        }
+        .table-title { font-size: 18px; font-weight: 600; color: #333; }
         .btn-group { display: flex; gap: 8px; }
         button {
             padding: 10px 16px; border: none; border-radius: 6px;
@@ -101,34 +123,43 @@
         .btn-clear { background-color: #6c757d; color: white; }
         button:hover { opacity: 0.85; }
         
-        /* Matrix Table Styling (Proper Reporting) */
+        /* Matrix Table Styling */
         .table-container {
             width: 100%; overflow-x: auto; max-height: 500px;
         }
         table {
             width: 100%; border-collapse: collapse; white-space: nowrap;
         }
-        table, th, td {
-            border: 1px solid #dee2e6;
-        }
+        table, th, td { border: 1px solid #dee2e6; }
         th {
             background-color: #f4f6f9; color: #333; font-weight: 600;
             padding: 10px; text-align: center; position: sticky; top: 0; z-index: 2;
         }
-        /* Sticky header lapis kedua */
         thead tr:nth-child(2) th { top: 40px; z-index: 1; }
-        
         td {
-            padding: 8px 12px; text-align: center; font-family: monospace; font-size: 14px;
+            padding: 8px; font-family: monospace; font-size: 14px;
         }
         table tr:hover td { background-color: #f8f9fa; }
         
-        /* Pewarnaan Header Biar Jelas */
+        /* Style di dalam Cell untuk Data & Tombol Hapus */
+        .cell-data {
+            display: flex; justify-content: space-between; align-items: center; gap: 10px;
+        }
+        .cell-data .qr-text {
+            font-weight: bold;
+        }
+        .del-btn {
+            color: #dc3545; cursor: pointer; font-size: 12px;
+            padding: 2px 6px; border-radius: 4px; transition: 0.2s;
+        }
+        .del-btn:hover { background-color: #f8d7da; }
+
+        /* Pewarnaan Header (Konsisten 3 Warna: Biru, Hijau, Abu-abu) */
         .th-day1 { border-bottom: 2px solid #007bff !important; }
         .th-day2 { border-bottom: 2px solid #28a745 !important; }
-        .th-day3 { border-bottom: 2px solid #17a2b8 !important; }
-        .th-day4 { border-bottom: 2px solid #fd7e14 !important; }
-        .th-day5 { border-bottom: 2px solid #6f42c1 !important; }
+        .th-day3 { border-bottom: 2px solid #6c757d !important; }
+        .th-day4 { border-bottom: 2px solid #007bff !important; }
+        .th-day5 { border-bottom: 2px solid #28a745 !important; }
     </style>
 </head>
 <body>
@@ -154,12 +185,12 @@
             </div>
         </div>
 
+        <div id="toastContainer" class="toast-container"></div>
+
         <div class="input-group">
             <label for="qrInput">Pastikan kursor aktif di sini sebelum scan:</label>
             <input type="text" id="qrInput" placeholder="Arahkan scanner ke QR Code..." autofocus autocomplete="off">
         </div>
-        
-        <div id="statusMessage" class="status"></div>
 
         <div class="actions">
             <div class="table-title">Laporan Data Check-in (Matrix View)</div>
@@ -204,10 +235,8 @@
         const eventDates = ['2026-07-01', '2026-07-02', '2026-07-03', '2026-07-04', '2026-07-05'];
         
         const qrInput = document.getElementById('qrInput');
-        const statusBox = document.getElementById('statusMessage');
         const tableBody = document.getElementById('tableBody');
 
-        // Init UI
         updateDashboard();
         renderTable();
 
@@ -219,57 +248,89 @@
             return `${year}-${month}-${day}`;
         }
 
-        function showStatus(message, type) {
-            statusBox.textContent = message;
-            statusBox.className = `status ${type}`;
-            setTimeout(() => { statusBox.style.display = 'none'; }, 2500); 
+        // --- FITUR POP-UP NOTIF (TOAST) ---
+        function showToast(message, type) {
+            const toastContainer = document.getElementById('toastContainer');
+            
+            // Hapus isi container dulu biar nggak numpuk ke bawah kalau di-scan beruntun cepat
+            toastContainer.innerHTML = ''; 
+            
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.innerHTML = `<span>${message}</span>`;
+            
+            toastContainer.appendChild(toast);
+            
+            // Animasi masuk
+            setTimeout(() => toast.classList.add('show'), 10);
+            
+            // Animasi hilang & hapus elemen setelah 2 detik
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 250);
+            }, 2000);
         }
 
-        // --- CORE LOGIC: GENERATE MATRIX DATA ---
+        // --- LOGIC: GENERATE MATRIX DATA ---
         function generateMatrixData() {
             let cols = {
-                '1_U': [],
-                '2_U': [], '2_R': [],
-                '3_U': [], '3_R': [],
-                '4_U': [], '4_R': [],
-                '5_U': [], '5_R': []
+                '1_U': [], '2_U': [], '2_R': [], '3_U': [], '3_R': [],
+                '4_U': [], '4_R': [], '5_U': [], '5_R': []
             };
 
             const seenQRs = new Set();
 
             eventDates.forEach((date, index) => {
                 const dayNum = index + 1;
-                // Ambil data khusus tanggal ini
                 const scansForDay = checkinData.filter(d => d.tanggal === date);
                 
                 scansForDay.forEach(scan => {
-                    // Kalau QR Code sudah pernah di-scan di hari-hari sebelumnya
                     if (seenQRs.has(scan.qr_code)) {
-                        if (dayNum > 1) {
-                            cols[`${dayNum}_R`].push(scan.qr_code);
-                        }
+                        if (dayNum > 1) cols[`${dayNum}_R`].push(scan.qr_code);
                     } else {
-                        // Kalau belum pernah ada (Unique)
                         cols[`${dayNum}_U`].push(scan.qr_code);
                         seenQRs.add(scan.qr_code);
                     }
                 });
             });
 
-            // Cari kolom mana yang punya baris terbanyak untuk nentuin tinggi tabel
             const maxRows = Math.max(
-                cols['1_U'].length,
-                cols['2_U'].length, cols['2_R'].length,
-                cols['3_U'].length, cols['3_R'].length,
-                cols['4_U'].length, cols['4_R'].length,
-                cols['5_U'].length, cols['5_R'].length,
-                0 // Minimal 0
+                cols['1_U'].length, cols['2_U'].length, cols['2_R'].length,
+                cols['3_U'].length, cols['3_R'].length, cols['4_U'].length,
+                cols['4_R'].length, cols['5_U'].length, cols['5_R'].length, 0
             );
 
             return { cols, maxRows, seenQRs };
         }
 
-        // --- RENDER KE HTML ---
+        // Format tampilan per kotak (menambahkan tombol Hapus)
+        function formatCell(qr, dayIndex) {
+            if (!qr) return '-';
+            const date = eventDates[dayIndex];
+            return `
+                <div class="cell-data">
+                    <span class="qr-text">${qr}</span>
+                    <span class="del-btn" onclick="deleteEntry('${qr}', '${date}')" title="Hapus scan ini">✖</span>
+                </div>
+            `;
+        }
+
+        // --- FITUR HAPUS DATA PER QR CODE ---
+        function deleteEntry(qr, date) {
+            if(confirm(`Hapus data check-in QR Code: ${qr} pada tanggal ${date}?`)) {
+                // Filter array untuk membuang data yang mau dihapus
+                checkinData = checkinData.filter(entry => !(entry.qr_code === qr && entry.tanggal === date));
+                
+                localStorage.setItem('checkinData', JSON.stringify(checkinData));
+                updateDashboard();
+                renderTable();
+                showToast(`Data ${qr} berhasil dihapus!`, 'success');
+                
+                // Balikkan kursor ke input box
+                qrInput.focus();
+            }
+        }
+
         function renderTable() {
             const { cols, maxRows } = generateMatrixData();
             let tableHTML = '';
@@ -277,15 +338,15 @@
             for (let i = 0; i < maxRows; i++) {
                 tableHTML += `
                     <tr>
-                        <td>${cols['1_U'][i] || '-'}</td>
-                        <td>${cols['2_U'][i] || '-'}</td>
-                        <td>${cols['2_R'][i] || '-'}</td>
-                        <td>${cols['3_U'][i] || '-'}</td>
-                        <td>${cols['3_R'][i] || '-'}</td>
-                        <td>${cols['4_U'][i] || '-'}</td>
-                        <td>${cols['4_R'][i] || '-'}</td>
-                        <td>${cols['5_U'][i] || '-'}</td>
-                        <td>${cols['5_R'][i] || '-'}</td>
+                        <td>${formatCell(cols['1_U'][i], 0)}</td>
+                        <td>${formatCell(cols['2_U'][i], 1)}</td>
+                        <td>${formatCell(cols['2_R'][i], 1)}</td>
+                        <td>${formatCell(cols['3_U'][i], 2)}</td>
+                        <td>${formatCell(cols['3_R'][i], 2)}</td>
+                        <td>${formatCell(cols['4_U'][i], 3)}</td>
+                        <td>${formatCell(cols['4_R'][i], 3)}</td>
+                        <td>${formatCell(cols['5_U'][i], 4)}</td>
+                        <td>${formatCell(cols['5_R'][i], 4)}</td>
                     </tr>
                 `;
             }
@@ -304,7 +365,6 @@
 
             const { cols, seenQRs } = generateMatrixData();
 
-            // Hitung manual buat dashboard hari ini
             const dayIndex = eventDates.indexOf(today);
             if (dayIndex !== -1) {
                 const dayNum = dayIndex + 1;
@@ -328,14 +388,17 @@
         });
 
         document.body.addEventListener('click', function(e) {
-            if(e.target.tagName !== 'BUTTON') qrInput.focus();
+            // Biar kursor tetap aman di kolom input, kecuali klik tombol hapus atau export
+            if(e.target.tagName !== 'BUTTON' && !e.target.classList.contains('del-btn')) {
+                qrInput.focus();
+            }
         });
 
         function processScan(scannedData) {
             const scanDate = getActualTodayDate();
             
             if (!eventDates.includes(scanDate)) {
-                showStatus(`Gagal: Hari ini (${scanDate}) di luar jadwal event.`, 'error');
+                showToast(`Gagal: Hari ini (${scanDate}) di luar jadwal event.`, 'error');
                 return;
             }
 
@@ -344,7 +407,7 @@
             );
 
             if (isAlreadyScannedToday) {
-                showStatus(`Gagal: QR Code ${scannedData} sudah scan hari ini!`, 'error');
+                showToast(`Gagal: QR Code ${scannedData} sudah scan hari ini (Double)!`, 'error');
             } else {
                 const newEntry = {
                     qr_code: scannedData,
@@ -355,23 +418,24 @@
                 checkinData.push(newEntry); 
                 localStorage.setItem('checkinData', JSON.stringify(checkinData));
                 
-                showStatus(`Berhasil: ${scannedData}`, 'success');
+                showToast(`Berhasil: Scan sukses untuk ${scannedData}`, 'success');
                 updateDashboard();
                 renderTable();
             }
         }
 
+        // Hapus Seluruh Data
         function clearData() {
             if(confirm("Yakin mereset seluruh database check-in? Data akan hilang permanen!")) {
                 checkinData = [];
                 localStorage.removeItem('checkinData');
                 updateDashboard();
                 renderTable();
-                showStatus("Data berhasil direset.", "success");
+                showToast("Semua data berhasil direset.", "success");
             }
         }
 
-        // --- EXPORT TO EXCEL (Sesuai Gambar) ---
+        // --- EXPORT TO EXCEL ---
         function exportToXLSX() {
             if (checkinData.length === 0) {
                 alert("Belum ada data untuk di-export.");
@@ -380,34 +444,27 @@
 
             const { cols, maxRows } = generateMatrixData();
             
-            // Bikin struktur Array-of-Arrays (AoA) persis kayak Excel-nya
             const aoa = [
                 ["Day 1", "Day 2", "", "Day 3", "", "Day 4", "", "Day 5", ""],
                 ["Unique", "Unique", "Re-visit", "Unique", "Re-visit", "Unique", "Re-visit", "Unique", "Re-visit"]
             ];
 
-            // Masukin data ke baris-baris bawahnya
             for (let i = 0; i < maxRows; i++) {
                 aoa.push([
-                    cols['1_U'][i] || "",
-                    cols['2_U'][i] || "", cols['2_R'][i] || "",
-                    cols['3_U'][i] || "", cols['3_R'][i] || "",
-                    cols['4_U'][i] || "", cols['4_R'][i] || "",
-                    cols['5_U'][i] || "", cols['5_R'][i] || ""
+                    cols['1_U'][i] || "", cols['2_U'][i] || "", cols['2_R'][i] || "",
+                    cols['3_U'][i] || "", cols['3_R'][i] || "", cols['4_U'][i] || "",
+                    cols['4_R'][i] || "", cols['5_U'][i] || "", cols['5_R'][i] || ""
                 ]);
             }
 
             const worksheet = XLSX.utils.aoa_to_sheet(aoa);
 
-            // Merge Cells buat row pertama ("Day 2" sampai "Day 5")
             worksheet['!merges'] = [
-                { s: { r: 0, c: 1 }, e: { r: 0, c: 2 } }, // Day 2 (Kolom B-C)
-                { s: { r: 0, c: 3 }, e: { r: 0, c: 4 } }, // Day 3 (Kolom D-E)
-                { s: { r: 0, c: 5 }, e: { r: 0, c: 6 } }, // Day 4 (Kolom F-G)
-                { s: { r: 0, c: 7 }, e: { r: 0, c: 8 } }  // Day 5 (Kolom H-I)
+                { s: { r: 0, c: 1 }, e: { r: 0, c: 2 } }, 
+                { s: { r: 0, c: 3 }, e: { r: 0, c: 4 } }, 
+                { s: { r: 0, c: 5 }, e: { r: 0, c: 6 } }, 
+                { s: { r: 0, c: 7 }, e: { r: 0, c: 8 } }  
             ];
-
-            // Setting lebar kolom biar rapi pas dibuka
             worksheet['!cols'] = Array(9).fill({wch: 15});
 
             const workbook = XLSX.utils.book_new();
@@ -415,7 +472,7 @@
             XLSX.writeFile(workbook, `Report_Matrix_Event.xlsx`);
         }
 
-        // --- EXPORT TO CSV (Format Sama) ---
+        // --- EXPORT TO CSV ---
         function exportToCSV() {
             if (checkinData.length === 0) {
                 alert("Belum ada data.");
@@ -430,11 +487,9 @@
 
             for (let i = 0; i < maxRows; i++) {
                 const row = [
-                    cols['1_U'][i] || "",
-                    cols['2_U'][i] || "", cols['2_R'][i] || "",
-                    cols['3_U'][i] || "", cols['3_R'][i] || "",
-                    cols['4_U'][i] || "", cols['4_R'][i] || "",
-                    cols['5_U'][i] || "", cols['5_R'][i] || ""
+                    cols['1_U'][i] || "", cols['2_U'][i] || "", cols['2_R'][i] || "",
+                    cols['3_U'][i] || "", cols['3_R'][i] || "", cols['4_U'][i] || "",
+                    cols['4_R'][i] || "", cols['5_U'][i] || "", cols['5_R'][i] || ""
                 ];
                 csvContent += row.join(",") + "\n";
             }
